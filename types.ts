@@ -3,7 +3,7 @@
  */
 
 import type * as fs from "node:fs";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { RenameResult } from "./registry.js";
 
 // =============================================================================
@@ -70,6 +70,8 @@ export interface MeshMessage {
   timestamp: string;
   urgent: boolean;
   replyTo: string | null;
+  channel?: "global" | "direct";
+  recipients?: string[];
 }
 
 // =============================================================================
@@ -120,6 +122,7 @@ export interface MeshState {
   watcherRetries: number;
   watcherRetryTimer: ReturnType<typeof setTimeout> | null;
   watcherDebounceTimer: ReturnType<typeof setTimeout> | null;
+  inboxSweepTimer?: ReturnType<typeof setInterval>;
   reservations: FileReservation[];
   chatHistory: Map<string, MeshMessage[]>;
   unreadCounts: Map<string, number>;

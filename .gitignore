@@ -2,6 +2,8 @@ node_modules/
 dist/
 *.tgz
 .pi/mesh/
+.pi/mesh-office/
+.artifacts/
 .DS_Store
 *.log
 coverage/

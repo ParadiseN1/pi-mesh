@@ -7,7 +7,7 @@
 import * as fs from "node:fs";
 import { join, basename, normalize } from "node:path";
 import { execSync } from "node:child_process";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentRegistration,
   MeshState,

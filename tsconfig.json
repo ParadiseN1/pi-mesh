@@ -12,6 +12,6 @@
     "sourceMap": true,
     "types": ["bun-types"]
   },
-  "include": ["*.ts"],
+  "include": ["*.ts", "dashboard/*.ts"],
   "exclude": ["tests", "dist", "node_modules"]
 }

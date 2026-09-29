@@ -5,8 +5,8 @@
  * and an interactive overlay for multiple Pi sessions.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -18,6 +18,10 @@ import * as reservations from "./reservations.js";
 import * as messaging from "./messaging.js";
 import * as feed from "./feed.js";
 import * as tracking from "./tracking.js";
+import { readMessages } from "./history.js";
+import { readTeam, teamContext } from "./team.js";
+import { OfficeRecords } from "./office-records.js";
+import { registerOfficeTools } from "./office-tools.js";
 
 export default function piMeshExtension(pi: ExtensionAPI) {
   // ===========================================================================
@@ -51,6 +55,11 @@ export default function piMeshExtension(pi: ExtensionAPI) {
   };
 
   let dirs: Dirs = registry.resolveDirs(process.cwd());
+  registerOfficeTools(pi, () => {
+    const team = readTeam(dirs);
+    if (!state.registered || !team) throw new Error("This tool requires a registered Mesh Office team");
+    return { records: new OfficeRecords(dirs, team), actor: state.agentName };
+  });
   let hooks: MeshLifecycleHooks = {};
   let hooksPollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -64,7 +73,8 @@ export default function piMeshExtension(pi: ExtensionAPI) {
         ? ` - reply: mesh_send({ to: "${msg.from}", message: "..." })`
         : "";
 
-    const content = `**Message from ${msg.from}**${replyHint}\n\n${msg.text}`;
+    const channel = msg.channel === "global" ? " in Global Chat" : " (direct message)";
+    const content = `**Message from ${msg.from}${channel}**${replyHint}\n\n${msg.text}`;
 
     // Urgent messages steer (interrupt), normal messages follow up (wait for turn end)
     const deliverAs = msg.urgent ? "steer" : "followUp";
@@ -205,6 +215,8 @@ export default function piMeshExtension(pi: ExtensionAPI) {
 
       const lines: string[] = [];
       lines.push(`# Mesh (${allAgents.length} agents - ${folder})`, "");
+      const team = readTeam(dirs);
+      if (team) lines.push(`Team roster (${team.agents.length} peers): ${team.agents.join(", ")}. Your name: ${state.agentName}.`, "");
 
       for (const a of allAgents) {
         const isSelf = a.name === state.agentName;
@@ -306,7 +318,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
           message,
           urgent ?? false
         );
-        if (msgs.length === 0) return result("No active agents to broadcast to.");
+        if (msgs.length === 0) return result("Saved to Global Chat. No other agents are currently active.");
 
         const preview =
           message.length > 60 ? message.slice(0, 57) + "..." : message;
@@ -348,6 +360,21 @@ export default function piMeshExtension(pi: ExtensionAPI) {
   // ===========================================================================
   // Tool: mesh_reserve
   // ===========================================================================
+
+  pi.registerTool({
+    name: "mesh_history",
+    label: "Mesh History",
+    description: "Read durable Global Chat and your direct messages. Use peer to read your conversation with one colleague; globalOnly reads only shared messages.",
+    parameters: Type.Object({
+      peer: Type.Optional(Type.String()),
+      globalOnly: Type.Optional(Type.Boolean()),
+      limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+    }),
+    async execute(_id, params) {
+      if (!state.registered) return notRegistered();
+      return result(JSON.stringify(readMessages(dirs, { ...params, viewer: state.agentName }), null, 2));
+    },
+  });
 
   pi.registerTool({
     name: "mesh_reserve",
@@ -558,6 +585,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
   }
 
   async function executeRename(name: string | undefined, ctx: ExtensionContext) {
+    if (readTeam(dirs)) return result("Names remain stable during a dashboard run so teammates can reach you. Use set_status to describe your role or current work.");
     if (!name) return result("Error: name required for rename.");
 
     messaging.stopWatcher(state);
@@ -669,11 +697,13 @@ export default function piMeshExtension(pi: ExtensionAPI) {
   // ===========================================================================
 
   pi.on("session_start", async (_event, ctx) => {
-    state.isHuman = ctx.hasUI;
+    dirs = registry.resolveDirs(ctx.cwd ?? process.cwd());
+    const managedTeam = process.env.PI_MESH_TEAM === "1" && readTeam(dirs) !== null;
+    state.isHuman = ctx.hasUI && !managedTeam;
 
     // Non-interactive sessions (--print mode, daemon tasks) should not join the mesh.
     // They have no UI for message delivery and would spam interactive agents.
-    if (!ctx.hasUI) return;
+    if (!ctx.hasUI && !managedTeam) return;
 
     // Load lifecycle hooks early so they're available for onRegistered.
     try {
@@ -683,6 +713,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
     }
 
     const shouldAutoRegister =
+      managedTeam ||
       config.autoRegister ||
       matchesAutoRegisterPath(process.cwd(), config.autoRegisterPaths);
 
@@ -719,6 +750,12 @@ export default function piMeshExtension(pi: ExtensionAPI) {
         );
       }
     }
+  });
+
+  pi.on("before_agent_start", async () => {
+    const team = readTeam(dirs);
+    if (!team || !state.registered) return;
+    return { message: { customType: "mesh_team", content: teamContext(team, state.agentName), display: false } };
   });
 
   // ===========================================================================
@@ -805,15 +842,10 @@ export default function piMeshExtension(pi: ExtensionAPI) {
   });
 
   // ===========================================================================
-  // Event: session_switch, session_fork, session_tree
+  // Session switches and forks emit session_start in Pi 0.84+.
   // ===========================================================================
 
-  pi.on("session_switch", async (_event, ctx) => {
-    messaging.recoverWatcherIfNeeded(state, dirs, deliverMessage);
-    updateStatusBar(ctx);
-  });
-
-  pi.on("session_fork", async (_event, ctx) => {
+  pi.on("session_start", async (_event, ctx) => {
     messaging.recoverWatcherIfNeeded(state, dirs, deliverMessage);
     updateStatusBar(ctx);
   });
@@ -855,7 +887,7 @@ export default function piMeshExtension(pi: ExtensionAPI) {
 // =============================================================================
 
 function result(text: string) {
-  return { content: [{ type: "text" as const, text }] };
+  return { content: [{ type: "text" as const, text }], details: undefined };
 }
 
 function notRegistered() {

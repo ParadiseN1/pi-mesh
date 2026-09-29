@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mesh Office — Your team's workroom</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/records.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Mesh Office"
+        ><span class="brand-mark" aria-hidden="true">m</span
+        ><span
+          >MESH<span class="brand-light">OFFICE</span
+          ><small>A little office. One shared ambition.</small></span
+        ></a
+      >
+      <div class="top-actions">
+        <span id="connection" class="connection"><i></i>Connecting</span
+        ><button id="history-button" class="quiet">
+          History <span>⌄</span></button
+        ><button id="new-team" class="primary"><span>＋</span> New team</button>
+      </div>
+    </header>
+    <main class="workspace">
+      <div class="office-heading">
+        <div>
+          <div class="eyebrow">YOUR TEAM'S LITTLE CORNER OF THE INTERNET</div>
+          <h1 id="office-title">Where ideas get to work<span>.</span></h1>
+          <p id="goal-preview">One goal. Equal peers. A rhythm of their own.</p>
+        </div>
+        <div class="office-controls">
+          <span id="run-state" class="run-pill">Office ready</span
+          ><button id="resume-team" class="primary" hidden>Resume team</button
+          ><button id="stop-team" class="quiet danger" hidden>
+            Pause team
+          </button>
+        </div>
+      </div>
+      <section class="office-frame" aria-label="Pixel office for your agents">
+        <div class="room-topline">
+          <span><i class="lamp"></i> WORKROOM / <b id="room-number">01</b></span
+          ><span
+            >QUESTIONS · CHAT · SHARED SHELVES
+            <span class="keycap">↗</span></span
+          >
+        </div>
+        <div id="office-stage" class="office-stage">
+          <canvas
+            id="office-canvas"
+            width="960"
+            height="620"
+            aria-label="Office with agent desks and a message board"
+          ></canvas>
+          <button
+            id="board-button"
+            class="board-hotspot"
+            aria-label="Open message board"
+          >
+            <span>Open chat <b>↗</b></span>
+          </button>
+          <button
+            id="question-hotspot"
+            class="record-hotspot"
+            aria-label="Open questions"
+          >
+            <span>Questions ↗</span>
+          </button>
+          <button
+            id="shelves-hotspot"
+            class="record-hotspot"
+            aria-label="Open shelves"
+          >
+            <span>Shared shelves ↗</span>
+          </button>
+          <div id="agent-hotspots"></div>
+          <div id="welcome-card" class="welcome-card">
+            <span class="tiny-label">IT STARTS WITH AN IDEA</span>
+            <h2>Your team is ready for its first goal.</h2>
+            <p>
+              Describe the task and choose how many agents will work together.
+            </p>
+            <button id="welcome-start" class="primary">
+              Bring your team together <span>↗</span>
+            </button>
+          </div>
+        </div>
+        <footer class="room-footer">
+          <div id="team-stats" class="team-stats">
+            <span><i class="dot green"></i>0 agents</span><span>0 messages</span
+            ><span>0 tokens</span>
+          </div>
+          <div class="room-tools">
+            <button id="open-questions" class="text-button">
+              Questions <b id="questions-count">0</b></button
+            ><button id="open-chat" class="text-button">Team board ↗</button
+            ><button id="open-shelves" class="text-button">
+              Shelves <b id="shelves-count">0</b></button
+            ><span id="delivery-state" class="delivery-indicator"
+              >Not collected</span
+            >
+          </div>
+        </footer>
+      </section>
+      <div class="below-office">
+        <p>
+          <span>✦</span> Every desk belongs to an agent. Click to see their work
+          and conversations.
+        </p>
+        <span class="pixel-note">MADE FOR WORKING TOGETHER</span>
+      </div>
+      <div id="run-error" class="error-banner" role="alert" hidden></div>
+    </main>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <dialog id="create-dialog" class="create-dialog">
+      <button
+        class="dialog-close"
+        data-close="create-dialog"
+        aria-label="Close"
+      >
+        ×
+      </button>
+      <div class="form-kicker">
+        <span class="pixel-flower">✳</span> NEW TEAM
+      </div>
+      <h2>Give your office a shared goal.</h2>
+      <p class="muted">Your agents will decide how to work together.</p>
+      <form id="create-form">
+        <label for="goal">What needs to get done?</label
+        ><textarea
+          id="goal"
+          name="goal"
+          rows="4"
+          required
+          maxlength="30000"
+          placeholder="Describe the task, the desired outcome, and any constraints…"
+        ></textarea>
+        <label for="cwd">Workspace folder</label
+        ><input
+          id="cwd"
+          name="cwd"
+          required
+          placeholder="/path/to/project"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="form-grid">
+          <div>
+            <label for="count">Number of agents</label>
+            <div class="stepper">
+              <button type="button" id="count-minus" aria-label="Fewer agents">
+                −</button
+              ><input
+                id="count"
+                type="number"
+                min="1"
+                max="20"
+                value="10"
+                required
+              /><button type="button" id="count-plus" aria-label="More agents">
+                ＋
+              </button>
+            </div>
+          </div>
+          <div>
+            <label for="model">Model</label
+            ><select id="model">
+              <option value="">GPT-6 Astra · ChatGPT subscription</option>
+            </select>
+          </div>
+        </div>
+        <p id="model-note" class="field-note">
+          Uses your ChatGPT subscription. OpenAI API billing is disabled in this
+          office.
+        </p>
+        <p id="form-error" class="form-error" role="alert" hidden></p>
+        <button id="launch-button" class="primary launch" type="submit">
+          Start working <span>↗</span>
+        </button>
+      </form>
+    </dialog>
+    <dialog id="chat-dialog" class="chat-dialog">
+      <div class="chat-shell">
+        <aside class="chat-sidebar">
+          <div class="chat-brand">
+            <span class="brand-mark small">m</span><strong>Mesh Office</strong>
+          </div>
+          <div class="sidebar-heading">BOARD</div>
+          <button class="channel-button selected" data-channel="global">
+            <span>#</span> Global Chat <b id="global-count">0</b></button
+          ><button class="channel-button" data-channel="all">
+            <span>◎</span> All conversations
+          </button>
+          <div class="sidebar-heading">
+            AGENTS <span id="member-count">0</span>
+          </div>
+          <div id="agent-channels"></div>
+          <div class="sidebar-heading">TEAM CONVERSATIONS</div>
+          <div id="peer-channels"></div>
+          <div class="sidebar-bottom">
+            <i class="dot green"></i>You are the team owner<a
+              id="export-link"
+              href="#"
+              download
+              >Export history ↗</a
+            >
+          </div>
+        </aside>
+        <section class="chat-main">
+          <header class="chat-header">
+            <div>
+              <h2 id="channel-title"># Global Chat</h2>
+              <p id="channel-description">
+                Shared plans, questions, and results.
+              </p>
+            </div>
+            <div class="chat-header-actions">
+              <button
+                id="fullscreen-chat"
+                class="icon-button"
+                aria-label="Expand chat"
+              >
+                ⛶</button
+              ><button
+                class="icon-button"
+                data-close="chat-dialog"
+                aria-label="Back to office"
+              >
+                ×
+              </button>
+            </div>
+          </header>
+          <div id="chat-goal" class="chat-goal" hidden></div>
+          <div
+            id="messages"
+            class="messages"
+            role="log"
+            aria-live="polite"
+          ></div>
+          <form id="message-form" class="compose">
+            <label id="compose-label" for="message-text"
+              >Message the whole team</label
+            ><textarea
+              id="message-text"
+              rows="2"
+              maxlength="50000"
+              placeholder="Message your team…"
+            ></textarea>
+            <div>
+              <span id="compose-hint">From you · Ctrl / ⌘ + Enter to send</span
+              ><button class="primary" id="send-message" type="submit">
+                Send ↑
+              </button>
+            </div>
+          </form>
+        </section>
+        <aside id="agent-detail" class="agent-detail" hidden></aside>
+      </div>
+    </dialog>
+    <dialog id="history-dialog" class="history-dialog">
+      <button
+        class="dialog-close"
+        data-close="history-dialog"
+        aria-label="Close"
+      >
+        ×
+      </button>
+      <div class="eyebrow">YOUR TEAMS</div>
+      <h2>Previous workrooms</h2>
+      <div id="run-history"></div>
+    </dialog>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -5,9 +5,9 @@
  * Implements Component interface for ctx.ui.custom()
  */
 
-import { matchesKey, truncateToWidth, Key } from "@mariozechner/pi-tui";
-import type { Component, TUI } from "@mariozechner/pi-tui";
-import type { Theme } from "@mariozechner/pi-coding-agent";
+import { matchesKey, truncateToWidth, Key } from "@earendil-works/pi-tui";
+import type { Component, TUI } from "@earendil-works/pi-tui";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { MeshState, Dirs, MeshConfig } from "./types.js";
 import { STATUS_INDICATORS } from "./types.js";
 import * as registry from "./registry.js";
@@ -17,6 +17,7 @@ import * as messaging from "./messaging.js";
 type Tab = "agents" | "feed" | "chat";
 
 export class MeshOverlay implements Component {
+  invalidate(): void { /* Every render reads the current mesh state. */ }
   private tabs: Tab[] = ["agents", "feed", "chat"];
   private currentTab: Tab = "agents";
   private scrollOffset = 0;
