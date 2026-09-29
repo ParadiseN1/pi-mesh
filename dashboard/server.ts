@@ -4,6 +4,7 @@ import { TeamController } from "./controller.js";
 import { PiProcess } from "./pi-process.js";
 import { readMessages } from "../history.js";
 import { DEFAULT_MODEL } from "./auth-policy.js";
+import { createBundle } from "./bundle.js";
 
 export function startDashboard(
   options: {
@@ -25,6 +26,10 @@ export function startDashboard(
     ["/app.js", "app.js"],
     ["/office.js", "office.js"],
     ["/style.css", "style.css"],
+    ["/records.js", "records.js"],
+    ["/records.css", "records.css"],
+    ["/pdf.mjs", "../../node_modules/pdfjs-dist/build/pdf.mjs"],
+    ["/pdf.worker.mjs", "../../node_modules/pdfjs-dist/build/pdf.worker.mjs"],
   ]);
   let modelCache:
     { models: { id: string; name: string }[]; error?: string } | undefined;
@@ -67,13 +72,19 @@ export function startDashboard(
                 "Cache-Control": "no-store",
                 "X-Content-Type-Options": "nosniff",
                 "Content-Security-Policy":
-                  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
+                  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' blob: data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'",
               },
             },
           );
         }
         if (url.pathname === "/api/config" && request.method === "GET")
-          return json({ token, defaultCwd, maxAgents: 20, defaultModel: DEFAULT_MODEL, authentication: "chatgpt-subscription" });
+          return json({
+            token,
+            defaultCwd,
+            maxAgents: 20,
+            defaultModel: DEFAULT_MODEL,
+            authentication: "chatgpt-subscription",
+          });
         if (url.pathname === "/api/state" && request.method === "GET")
           return json(
             controller.snapshot(url.searchParams.get("run") || undefined),
@@ -95,8 +106,10 @@ export function startDashboard(
                   "--no-prompt-templates",
                   "--no-context-files",
                   "--no-approve",
-                  "--provider", "openai-codex",
-                  "--model", DEFAULT_MODEL,
+                  "--provider",
+                  "openai-codex",
+                  "--model",
+                  DEFAULT_MODEL,
                 ],
                 cwd: defaultCwd,
                 onEvent: () => {},
@@ -109,10 +122,12 @@ export function startDashboard(
                   15000,
                 );
                 return {
-                  models: (result?.models || []).filter((model: any) => model.provider === 'openai-codex').map((model: any) => ({
-                    id: `${model.provider}/${model.id}`,
-                    name: `${model.name || model.id} · ${model.provider}`,
-                  })),
+                  models: (result?.models || [])
+                    .filter((model: any) => model.provider === "openai-codex")
+                    .map((model: any) => ({
+                      id: `${model.provider}/${model.id}`,
+                      name: `${model.name || model.id} · ${model.provider}`,
+                    })),
                 };
               } catch (error) {
                 return {
@@ -165,6 +180,62 @@ export function startDashboard(
               "Content-Type": "text/event-stream",
               "Cache-Control": "no-cache",
               Connection: "keep-alive",
+            },
+          });
+        }
+        const recordAction = url.pathname.match(
+          /^\/api\/runs\/([a-zA-Z0-9-]+)\/records\/(artifacts|questions|delivery)$/,
+        );
+        if (recordAction && request.method === "POST") {
+          const records = controller.records(recordAction[1]);
+          const method = recordAction[2] as
+            "artifacts" | "questions" | "delivery";
+          return json(records[method](await request.json(), "human"));
+        }
+        const content = url.pathname.match(
+          /^\/api\/runs\/([a-zA-Z0-9-]+)\/artifacts\/([a-zA-Z0-9-]+)\/(\d+)\/(\d+)\/(.+)$/,
+        );
+        if (content && request.method === "GET") {
+          const [, runId, artifactId, revision, resource, name] = content;
+          const { file, data } = controller
+            .records(runId)
+            .file(
+              artifactId,
+              Number(revision),
+              Number(resource),
+              decodeURIComponent(name),
+            );
+          return new Response(new Uint8Array(data), {
+            headers: {
+              "Content-Type":
+                file.mime +
+                (file.mime.startsWith("text/") ? "; charset=utf-8" : ""),
+              "Content-Disposition": `${url.searchParams.has("download") ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(file.path.split("/").at(-1)!)}`,
+              "Cache-Control": "no-store",
+              "X-Content-Type-Options": "nosniff",
+              "Content-Security-Policy":
+                "sandbox allow-scripts allow-downloads; default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'",
+            },
+          });
+        }
+        const bundle = url.pathname.match(
+          /^\/api\/runs\/([a-zA-Z0-9-]+)\/bundle$/,
+        );
+        if (bundle && request.method === "GET") {
+          const data = createBundle(controller.records(bundle[1]), {
+            artifact: url.searchParams.get("artifact") || undefined,
+            revision: url.searchParams.has("revision")
+              ? Number(url.searchParams.get("revision"))
+              : undefined,
+            delivery: url.searchParams.has("delivery")
+              ? Number(url.searchParams.get("delivery"))
+              : undefined,
+          });
+          return new Response(new Uint8Array(data), {
+            headers: {
+              "Content-Type": "application/zip",
+              "Content-Disposition": `attachment; filename="mesh-delivery-${bundle[1].slice(0, 8)}.zip"`,
+              "Cache-Control": "no-store",
             },
           });
         }

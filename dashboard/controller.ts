@@ -13,6 +13,7 @@ import type { AgentRegistration, Dirs } from "../types.js";
 import type { TeamManifest } from "../team.js";
 import { PiProcess, type PiEvent } from "./pi-process.js";
 import { subscriptionModel } from "./auth-policy.js";
+import { OfficeRecords } from "../office-records.js";
 
 export type RunStatus =
   | "starting"
@@ -76,6 +77,7 @@ export class TeamController {
             ...agent,
             status: "stopped",
             activity: "Server restarted; history preserved",
+            pendingQuestion: undefined,
           }));
         }
         this.runs.set(id, run);
@@ -91,6 +93,11 @@ export class TeamController {
       registry: join(base, "registry"),
       inbox: join(base, "inbox"),
     };
+  }
+
+  records(id: string): OfficeRecords {
+    const { goal, cwd, agents, createdAt } = this.get(id);
+    return new OfficeRecords(this.dirs(id), { id, goal, cwd, agents, createdAt });
   }
 
   private save(run: TeamRun): void {
@@ -166,41 +173,61 @@ export class TeamController {
 
   resume(id: string): TeamRun {
     const run = this.get(id);
-    if (!['stopped', 'interrupted', 'failed'].includes(run.status) || this.launching.has(id))
+    if (
+      !["stopped", "interrupted", "failed"].includes(run.status) ||
+      this.launching.has(id)
+    )
       throw new Error("Wait for the team to finish stopping before resuming");
-    if (this.list().some(item => ['starting', 'running', 'idle', 'stopping'].includes(item.status)))
+    if (
+      this.list().some((item) =>
+        ["starting", "running", "idle", "stopping"].includes(item.status),
+      )
+    )
       throw new Error("Stop the current team before resuming another one");
     if (!existsSync(run.cwd) || !statSync(run.cwd).isDirectory())
       throw new Error("Workspace folder does not exist");
     // Resolve every saved session before starting any process. Never silently
     // replace a missing history with a fresh agent.
-    const saved = new Map(run.members.map(member => {
-      const dir = join(this.dirs(id).base, 'sessions', member.name);
-      const candidates = existsSync(dir) ? readdirSync(dir)
-        .filter(file => file.endsWith('.jsonl'))
-        .map(file => join(dir, file))
-        .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs) : [];
-      const path = member.sessionFile || candidates[0];
-      if (!path || !existsSync(path)) throw new Error(`Missing saved session for ${member.name}`);
-      const header = JSON.parse(readFileSync(path, 'utf8').split('\n')[0]);
-      if (header.type !== 'session' || typeof header.cwd !== 'string' || realpathSync(header.cwd) !== realpathSync(run.cwd))
-        throw new Error(`Invalid saved session for ${member.name}`);
-      return [member.name, path] as const;
-    }));
-    run.model = subscriptionModel(run.model.startsWith('openai-codex/') ? run.model : undefined);
-    run.status = 'starting';
+    const saved = new Map(
+      run.members.map((member) => {
+        const dir = join(this.dirs(id).base, "sessions", member.name);
+        const candidates = existsSync(dir)
+          ? readdirSync(dir)
+              .filter((file) => file.endsWith(".jsonl"))
+              .map((file) => join(dir, file))
+              .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)
+          : [];
+        const path = member.sessionFile || candidates[0];
+        if (!path || !existsSync(path))
+          throw new Error(`Missing saved session for ${member.name}`);
+        const header = JSON.parse(readFileSync(path, "utf8").split("\n")[0]);
+        if (
+          header.type !== "session" ||
+          typeof header.cwd !== "string" ||
+          realpathSync(header.cwd) !== realpathSync(run.cwd)
+        )
+          throw new Error(`Invalid saved session for ${member.name}`);
+        return [member.name, path] as const;
+      }),
+    );
+    run.model = subscriptionModel(
+      run.model.startsWith("openai-codex/") ? run.model : undefined,
+    );
+    run.status = "starting";
     run.error = undefined;
     run.resumedAt = new Date().toISOString();
     run.stoppedAt = undefined;
     for (const member of run.members) {
       member.sessionFile = saved.get(member.name);
-      member.status = 'starting';
-      member.activity = 'Restoring saved session';
+      member.status = "starting";
+      member.activity = "Restoring saved session";
       member.error = undefined;
       member.pendingQuestion = undefined;
     }
     this.save(run);
-    const launch = this.launch(run, true).finally(() => this.launching.delete(id));
+    const launch = this.launch(run, true).finally(() =>
+      this.launching.delete(id),
+    );
     this.launching.set(id, launch);
     return run;
   }
@@ -225,7 +252,12 @@ export class TeamController {
           `${run.id.slice(0, 8)} / ${member.name}`,
         ];
         args.push(...(this.options.extraArgs ?? []));
-        args.push("--provider", "openai-codex", "--model", subscriptionModel(run.model));
+        args.push(
+          "--provider",
+          "openai-codex",
+          "--model",
+          subscriptionModel(run.model),
+        );
         if (resume) args.push("--session", member.sessionFile!);
         const session = new PiProcess({
           command: this.options.piCommand || process.env.PI_MESH_PI_BIN || "pi",
@@ -271,8 +303,13 @@ export class TeamController {
             ? `${state.model.provider}/${state.model.id}`
             : undefined;
           if (member.model !== run.model)
-            throw new Error(`${name}: expected subscription model ${run.model}, received ${member.model || 'no model'}`);
-          if (resume && resolve(state?.sessionFile || '') !== resolve(member.sessionFile!))
+            throw new Error(
+              `${name}: expected subscription model ${run.model}, received ${member.model || "no model"}`,
+            );
+          if (
+            resume &&
+            resolve(state?.sessionFile || "") !== resolve(member.sessionFile!)
+          )
             throw new Error(`${name}: Pi did not restore the saved session`);
           member.sessionFile = state?.sessionFile;
           if (!existsSync(join(dirs.registry, `${name}.json`)))
@@ -288,7 +325,7 @@ export class TeamController {
       for (const session of processes.values())
         session.send("prompt", {
           message: resume
-            ? "The human has resumed this same team after pausing it to switch to ChatGPT subscription authentication. Your conversation, shared workspace, and team chat are preserved. Continue the latest human request and agreed responsibilities from your existing history. Check mesh_history and the current files for any work or messages you missed. Do not restart completed work. If your part is complete, report only meaningful updates and wait for a concrete request."
+            ? "The human has resumed this same team after a pause. Your conversation, shared workspace, and team chat are preserved. Continue the latest human request and agreed responsibilities from your existing history. Check mesh_history, mesh_question list, mesh_artifact list, mesh_delivery get, and the current files for any work or messages you missed. Do not restart completed work. If your part is complete, report only meaningful updates and wait for a concrete request."
             : run.goal,
           ...(resume ? { streamingBehavior: "followUp" } : {}),
         });
@@ -384,6 +421,8 @@ export class TeamController {
     const run = id ? this.get(id) : this.list()[0];
     if (!run) return { runs: [], run: null, messages: [] };
     const dirs = this.dirs(run.id);
+    const records = this.records(run.id);
+    const notificationErrors = records.flushAnswers();
     const members = run.members.map((member) => {
       let registration: AgentRegistration | undefined;
       try {
@@ -409,6 +448,7 @@ export class TeamController {
       })),
       run: { ...run, members },
       messages: readMessages(dirs, { limit: 1000 }),
+      office: { ...records.view(), notificationErrors },
     };
   }
 

@@ -94,6 +94,8 @@ setInterval(() => {
   )) {
     const path = join(base, "inbox", name, file);
     const message = JSON.parse(readFileSync(path, "utf8"));
+    mkdirSync(join(base, 'deliveries'), { recursive: true });
+    writeFileSync(join(base, 'deliveries', `${message.id}_${name}.json`), JSON.stringify({id:message.id,agent:name,queuedAt:new Date().toISOString()}));
     unlinkSync(path);
     emit({ type: "agent_start" });
     finish(`Received: ${message.text}`);

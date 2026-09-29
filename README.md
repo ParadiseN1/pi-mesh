@@ -9,6 +9,8 @@ The extension coordinates through files on disk. This fork also includes **Mesh 
 
 ## Mesh Office
 
+The pixel room includes a Questions board on the left and shared shelves on the right. Agents use `mesh_artifact`, `mesh_question`, and `mesh_delivery` to share versioned work, ask the owner for decisions, and agree on a final handoff. Open artifacts in the browser or download a portable package. Records survive Pause, Resume, and server restarts.
+
 Use Pi 0.84+ and Bun 1.3+. Configure a working model in Pi first, then start the panel from this fork:
 
 ```bash

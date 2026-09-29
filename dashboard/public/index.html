@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mesh Office — Your team's workroom</title>
     <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/records.css" />
   </head>
   <body>
     <header class="topbar">
@@ -32,14 +33,17 @@
         <div class="office-controls">
           <span id="run-state" class="run-pill">Office ready</span
           ><button id="resume-team" class="primary" hidden>Resume team</button
-          ><button id="stop-team" class="quiet danger" hidden>Pause team</button>
+          ><button id="stop-team" class="quiet danger" hidden>
+            Pause team
+          </button>
         </div>
       </div>
       <section class="office-frame" aria-label="Pixel office for your agents">
         <div class="room-topline">
           <span><i class="lamp"></i> WORKROOM / <b id="room-number">01</b></span
           ><span
-            >CLICK THE BOARD TO OPEN CHAT <span class="keycap">↗</span></span
+            >QUESTIONS · CHAT · SHARED SHELVES
+            <span class="keycap">↗</span></span
           >
         </div>
         <div id="office-stage" class="office-stage">
@@ -55,6 +59,20 @@
             aria-label="Open message board"
           >
             <span>Open chat <b>↗</b></span>
+          </button>
+          <button
+            id="question-hotspot"
+            class="record-hotspot"
+            aria-label="Open questions"
+          >
+            <span>Questions ↗</span>
+          </button>
+          <button
+            id="shelves-hotspot"
+            class="record-hotspot"
+            aria-label="Open shelves"
+          >
+            <span>Shared shelves ↗</span>
           </button>
           <div id="agent-hotspots"></div>
           <div id="welcome-card" class="welcome-card">
@@ -73,9 +91,16 @@
             <span><i class="dot green"></i>0 agents</span><span>0 messages</span
             ><span>0 tokens</span>
           </div>
-          <button id="open-chat" class="text-button">
-            Team board <span>↗</span>
-          </button>
+          <div class="room-tools">
+            <button id="open-questions" class="text-button">
+              Questions <b id="questions-count">0</b></button
+            ><button id="open-chat" class="text-button">Team board ↗</button
+            ><button id="open-shelves" class="text-button">
+              Shelves <b id="shelves-count">0</b></button
+            ><span id="delivery-state" class="delivery-indicator"
+              >Not collected</span
+            >
+          </div>
         </footer>
       </section>
       <div class="below-office">
@@ -146,7 +171,8 @@
           </div>
         </div>
         <p id="model-note" class="field-note">
-          Uses your ChatGPT subscription. OpenAI API billing is disabled in this office.
+          Uses your ChatGPT subscription. OpenAI API billing is disabled in this
+          office.
         </p>
         <p id="form-error" class="form-error" role="alert" hidden></p>
         <button id="launch-button" class="primary launch" type="submit">

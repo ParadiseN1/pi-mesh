@@ -20,6 +20,8 @@ import * as feed from "./feed.js";
 import * as tracking from "./tracking.js";
 import { readMessages } from "./history.js";
 import { readTeam, teamContext } from "./team.js";
+import { OfficeRecords } from "./office-records.js";
+import { registerOfficeTools } from "./office-tools.js";
 
 export default function piMeshExtension(pi: ExtensionAPI) {
   // ===========================================================================
@@ -53,6 +55,11 @@ export default function piMeshExtension(pi: ExtensionAPI) {
   };
 
   let dirs: Dirs = registry.resolveDirs(process.cwd());
+  registerOfficeTools(pi, () => {
+    const team = readTeam(dirs);
+    if (!state.registered || !team) throw new Error("This tool requires a registered Mesh Office team");
+    return { records: new OfficeRecords(dirs, team), actor: state.agentName };
+  });
   let hooks: MeshLifecycleHooks = {};
   let hooksPollTimer: ReturnType<typeof setInterval> | null = null;
 

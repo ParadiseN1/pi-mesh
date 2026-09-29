@@ -1,3 +1,4 @@
+import { createRecords } from "/records.js";
 import {
   createOffice,
   deskPositions,
@@ -83,6 +84,8 @@ async function api(path, body) {
   if (!response.ok) throw new Error(result.error || "Something went wrong");
   return result;
 }
+const records = createRecords({ api, toast, openChat });
+
 function connect(id) {
   selectedRun = id;
   if (source) source.close();
@@ -103,6 +106,7 @@ function connect(id) {
 function render() {
   const { run, messages } = snapshot;
   office.update(snapshot);
+  records.update(snapshot);
   $("welcome-card").hidden = Boolean(run);
   $("office-title").textContent = run
     ? "Your team, in its own rhythm."

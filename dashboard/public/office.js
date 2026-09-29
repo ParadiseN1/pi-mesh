@@ -143,8 +143,8 @@ export function createOffice(canvas) {
       r(0, y, 960, 1, "#b58d79");
     }
     r(0, 223, 960, 9, "#76627833");
-    windowAt(62, 65, false);
-    windowAt(736, 65, true);
+    questionsBoard();
+    sharedShelves();
     // A clock and two pendant lights above the work area.
     r(263, 82, 26, 26, "#746780");
     r(267, 86, 18, 18, "#e5d5ca");
@@ -182,6 +182,78 @@ export function createOffice(canvas) {
     text("MAKE GOOD THINGS TOGETHER", 480, 594, "#815f61", 9, "center");
     r(0, 610, 960, 10, "#967984");
     r(0, 610, 960, 3, "#dfbca0");
+  }
+
+  function questionsBoard() {
+    const x = 61,
+      y = 54;
+    r(x + 5, y + 7, 172, 149, "#76677f55");
+    r(x - 4, y - 4, 180, 157, "#796170");
+    r(x, y, 172, 149, "#c7a083");
+    r(x + 4, y + 4, 164, 141, "#d5b492");
+    text("QUESTIONS FOR YOU", x + 86, y + 12, "#72596a", 9, "center");
+    const questions = (snapshot.office?.questions || []).filter(
+      (q) => q.status === "open",
+    );
+    const colors = ["#f3dfa5", "#ecd5d5", "#dce4c3"];
+    for (let i = 0; i < 3; i++) {
+      const xx = x + 13 + i * 49,
+        yy = y + 39 + (i % 2) * 7;
+      r(xx + 2, yy + 3, 42, 62, "#a9847266");
+      r(xx, yy, 42, 62, colors[i]);
+      r(xx + 18, yy - 2, 7, 7, "#b77675");
+      for (let line = 0; line < 4; line++)
+        r(xx + 7, yy + 16 + line * 8, line === 3 ? 17 : 28, 2, "#baaa9766");
+      if (questions[i]) text("?", xx + 21, yy + 15, "#8b6c65", 24, "center");
+    }
+    text(
+      questions.length
+        ? `${questions.length} AWAITING YOUR INPUT`
+        : "A PLACE FOR CLARITY",
+      x + 86,
+      y + 125,
+      "#896754",
+      8,
+      "center",
+    );
+  }
+
+  function sharedShelves() {
+    const x = 729,
+      y = 54;
+    r(x + 5, y + 7, 178, 150, "#76677f55");
+    r(x - 4, y - 4, 186, 158, "#796478");
+    r(x, y, 178, 150, "#a18b93");
+    r(x + 6, y + 5, 166, 141, "#baa49f");
+    const artifacts = snapshot.office?.artifacts || [];
+    ["knowledge", "work", "delivery"].forEach((purpose, row) => {
+      const yy = y + 7 + row * 47;
+      const count = artifacts.filter(
+        (a) => a.purpose.includes(purpose) && a.state !== "superseded",
+      ).length;
+      const colors = ["#a8bcaa", "#d9bd8e", "#bbb0d6", "#d7a4a2", "#9db6c3"];
+      for (let i = 0; i < Math.max(3, Math.min(8, count)); i++) {
+        const height = 21 + ((i * 7 + row * 3) % 9);
+        r(
+          x + 16 + i * 15,
+          yy + 30 - height,
+          11,
+          height,
+          colors[(i + row) % colors.length],
+        );
+        r(x + 18 + i * 15, yy + 34 - height, 7, 2, "#f4e8d499");
+      }
+      r(x + 5, yy + 31, 168, 7, "#82707c");
+      r(x + 5, yy + 31, 168, 2, "#d9c1ae");
+      text(
+        ["KNOWLEDGE", "WORK IN PROGRESS", "DELIVERIES"][row],
+        x + 12,
+        yy + 39,
+        "#594c60",
+        7,
+      );
+      text(String(count), x + 164, yy + 39, "#594c60", 7, "right");
+    });
   }
 
   function board() {

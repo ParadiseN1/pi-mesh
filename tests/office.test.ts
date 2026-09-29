@@ -126,6 +126,10 @@ describe("durable team messages", () => {
       if (Date.now() - started < 300) throw new Error("Busy");
     });
     expect(wasDelivered(dirs, message.id, "agent-2")).toBe(false);
+    // Exercise the periodic sweep without platform-specific filesystem events.
+    state.watcher?.close(); state.watcher = null;
+    if (state.watcherDebounceTimer) clearTimeout(state.watcherDebounceTimer);
+    state.watcherDebounceTimer = null;
     await until(() => wasDelivered(dirs, message.id, "agent-2"));
     expect(attempts).toBeGreaterThanOrEqual(2);
     expect(Date.now() - started).toBeGreaterThanOrEqual(1900);
