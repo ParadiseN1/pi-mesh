@@ -5,7 +5,6 @@
  */
 
 import * as fs from "node:fs";
-import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type {
   MeshState,
@@ -13,6 +12,8 @@ import type {
   MeshMessage,
 } from "./types.js";
 import * as registry from "./registry.js";
+import { publishMessage, validAgentName, markDelivered, wasDelivered } from "./history.js";
+import { readTeam } from "./team.js";
 
 // =============================================================================
 // Guard against concurrent processing
@@ -42,6 +43,8 @@ export function validateRecipient(
   name: string,
   dirs: Dirs
 ): { valid: boolean; error?: string } {
+  if (!validAgentName(name)) return { valid: false, error: "invalid_name" };
+  if (name === "human" && readTeam(dirs)) return { valid: true };
   const regPath = join(dirs.registry, `${name}.json`);
   if (!fs.existsSync(regPath)) return { valid: false, error: "not_found" };
 
@@ -73,28 +76,8 @@ export function sendMessage(
   urgent: boolean = false,
   replyTo?: string
 ): MeshMessage {
-  const targetInbox = join(dirs.inbox, to);
-  ensureDirSync(targetInbox);
-
-  const msg: MeshMessage = {
-    id: randomUUID(),
-    from: state.agentName,
-    to,
-    text,
-    timestamp: new Date().toISOString(),
-    urgent,
-    replyTo: replyTo ?? null,
-  };
-
-  const random = Math.random().toString(36).substring(2, 8);
-  const msgFile = join(targetInbox, `${Date.now()}-${random}.json`);
-  try {
-    fs.writeFileSync(msgFile, JSON.stringify(msg, null, 2));
-  } catch (err) {
-    throw new Error(`Failed to write message to ${to}: ${(err as Error).message}`);
-  }
-
-  return msg;
+  return publishMessage(dirs, state.agentName, to, text,
+    to === "human" && readTeam(dirs) ? [] : [to], { urgent, replyTo });
 }
 
 /**
@@ -107,13 +90,8 @@ export function broadcastMessage(
   urgent: boolean = false
 ): MeshMessage[] {
   const agents = registry.getActiveAgents(state, dirs);
-  const messages: MeshMessage[] = [];
-
-  for (const agent of agents) {
-    messages.push(sendMessage(state, dirs, agent.name, text, urgent));
-  }
-
-  return messages;
+  const message = publishMessage(dirs, state.agentName, "#global", text, agents.map((agent) => agent.name), { urgent });
+  return agents.map((agent) => ({ ...message, to: agent.name }));
 }
 
 // =============================================================================
@@ -154,9 +132,26 @@ export function processInbox(
 
     for (const file of files) {
       const msgPath = join(inbox, file);
+      let msg: MeshMessage;
       try {
         const content = fs.readFileSync(msgPath, "utf-8");
-        const msg: MeshMessage = JSON.parse(content);
+        msg = JSON.parse(content);
+        if (typeof msg.id !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(msg.id) || typeof msg.text !== "string" || !validAgentName(msg.from)) throw new Error("Invalid message");
+      } catch {
+        const rejected = join(dirs.base, "rejected", state.agentName);
+        fs.mkdirSync(rejected, { recursive: true });
+        try { fs.renameSync(msgPath, join(rejected, file)); } catch { /* Retry on the next inbox check. */ }
+        continue;
+      }
+
+      try {
+        if (wasDelivered(dirs, msg.id, state.agentName)) {
+          fs.unlinkSync(msgPath);
+          continue;
+        }
+        // A receipt means queued into Pi's session, not that the model has acted.
+        deliverFn(msg);
+        markDelivered(dirs, msg.id, state.agentName);
 
         // Store in chat history
         let history = state.chatHistory.get(msg.from);
@@ -171,16 +166,9 @@ export function processInbox(
         const current = state.unreadCounts.get(msg.from) ?? 0;
         state.unreadCounts.set(msg.from, current + 1);
 
-        // Deliver
-        deliverFn(msg);
         fs.unlinkSync(msgPath);
       } catch {
-        // Delete malformed to avoid infinite retry
-        try {
-          fs.unlinkSync(msgPath);
-        } catch {
-          // Ignore
-        }
+        // Keep undelivered messages for the watcher/turn-end retry.
       }
     }
   } finally {
@@ -216,6 +204,11 @@ export function startWatcher(
 
   // Process any pending messages first
   processInbox(state, dirs, deliverFn);
+  // Recover a missed filesystem event or a temporarily unavailable Pi session.
+  if (!state.inboxSweepTimer) {
+    state.inboxSweepTimer = setInterval(() => processInbox(state, dirs, deliverFn), 2000);
+    state.inboxSweepTimer.unref();
+  }
 
   function scheduleRetry(): void {
     state.watcherRetries++;
@@ -259,6 +252,10 @@ export function startWatcher(
  * Stop the inbox watcher.
  */
 export function stopWatcher(state: MeshState): void {
+  if (state.inboxSweepTimer) {
+    clearInterval(state.inboxSweepTimer);
+    state.inboxSweepTimer = undefined;
+  }
   if (state.watcherDebounceTimer) {
     clearTimeout(state.watcherDebounceTimer);
     state.watcherDebounceTimer = null;

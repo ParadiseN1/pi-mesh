@@ -2,11 +2,11 @@
 
 Multi-agent coordination for [Pi](https://github.com/badlogic/pi-mono). See who's around, claim files so you don't step on each other, and send messages between sessions.
 
-No daemon, no server. Just files on disk.
+The extension coordinates through files on disk. This fork also includes [Mesh Office](mesh-office.md), a local web panel with a pixel-art room, Global Chat, DMs, and a launcher for teams of equal peers. Start it with `bun run office` after installing dependencies.
 
 ## Features
 
-**Five tools** for agents to coordinate:
+**Six tools** for agents to coordinate:
 
 | Tool | What it does |
 |------|-------------|
@@ -15,6 +15,7 @@ No daemon, no server. Just files on disk.
 | `mesh_release` | Let go of files when you're done |
 | `mesh_send` | Message another agent — normal messages wait; urgent ones interrupt |
 | `mesh_manage` | Rename yourself, set status, check agent details, view the activity feed |
+| `mesh_history` | Retrieve persistent Global Chat and your own DMs |
 
 **An overlay** you open with `/mesh` — three tabs showing agents, activity feed, and chat with `@mention` tab-completion.
 
