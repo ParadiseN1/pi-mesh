@@ -4,6 +4,7 @@ import {
   readFileSync,
   readdirSync,
   statSync,
+  realpathSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -11,6 +12,7 @@ import { publishMessage, readMessages, writeJsonAtomic } from "../history.js";
 import type { AgentRegistration, Dirs } from "../types.js";
 import type { TeamManifest } from "../team.js";
 import { PiProcess, type PiEvent } from "./pi-process.js";
+import { subscriptionModel } from "./auth-policy.js";
 
 export type RunStatus =
   | "starting"
@@ -30,6 +32,7 @@ export interface AgentView {
   tokens: number;
   toolCalls: number;
   pendingQuestion?: PiEvent;
+  sessionFile?: string;
 }
 export interface TeamRun extends TeamManifest {
   status: RunStatus;
@@ -37,6 +40,7 @@ export interface TeamRun extends TeamManifest {
   members: AgentView[];
   error?: string;
   stoppedAt?: string;
+  resumedAt?: string;
 }
 export interface CreateRunInput {
   goal: string;
@@ -123,11 +127,7 @@ export class TeamController {
     const cwd = resolve(input.cwd);
     if (!existsSync(cwd) || !statSync(cwd).isDirectory())
       throw new Error("Workspace folder does not exist");
-    if (
-      input.model !== undefined &&
-      (typeof input.model !== "string" || input.model.length > 300)
-    )
-      throw new Error("Invalid model");
+    const model = subscriptionModel(input.model);
     const run: TeamRun = {
       id: randomUUID(),
       goal: input.goal.trim(),
@@ -135,7 +135,7 @@ export class TeamController {
       createdAt: new Date().toISOString(),
       agents: Array.from({ length: input.count }, (_, i) => `agent-${i + 1}`),
       status: "starting",
-      model: input.model?.trim() || "",
+      model,
       members: [],
     };
     run.members = run.agents.map((name) => ({
@@ -164,7 +164,48 @@ export class TeamController {
     return run;
   }
 
-  private async launch(run: TeamRun): Promise<void> {
+  resume(id: string): TeamRun {
+    const run = this.get(id);
+    if (!['stopped', 'interrupted', 'failed'].includes(run.status) || this.launching.has(id))
+      throw new Error("Wait for the team to finish stopping before resuming");
+    if (this.list().some(item => ['starting', 'running', 'idle', 'stopping'].includes(item.status)))
+      throw new Error("Stop the current team before resuming another one");
+    if (!existsSync(run.cwd) || !statSync(run.cwd).isDirectory())
+      throw new Error("Workspace folder does not exist");
+    // Resolve every saved session before starting any process. Never silently
+    // replace a missing history with a fresh agent.
+    const saved = new Map(run.members.map(member => {
+      const dir = join(this.dirs(id).base, 'sessions', member.name);
+      const candidates = existsSync(dir) ? readdirSync(dir)
+        .filter(file => file.endsWith('.jsonl'))
+        .map(file => join(dir, file))
+        .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs) : [];
+      const path = member.sessionFile || candidates[0];
+      if (!path || !existsSync(path)) throw new Error(`Missing saved session for ${member.name}`);
+      const header = JSON.parse(readFileSync(path, 'utf8').split('\n')[0]);
+      if (header.type !== 'session' || typeof header.cwd !== 'string' || realpathSync(header.cwd) !== realpathSync(run.cwd))
+        throw new Error(`Invalid saved session for ${member.name}`);
+      return [member.name, path] as const;
+    }));
+    run.model = subscriptionModel(run.model.startsWith('openai-codex/') ? run.model : undefined);
+    run.status = 'starting';
+    run.error = undefined;
+    run.resumedAt = new Date().toISOString();
+    run.stoppedAt = undefined;
+    for (const member of run.members) {
+      member.sessionFile = saved.get(member.name);
+      member.status = 'starting';
+      member.activity = 'Restoring saved session';
+      member.error = undefined;
+      member.pendingQuestion = undefined;
+    }
+    this.save(run);
+    const launch = this.launch(run, true).finally(() => this.launching.delete(id));
+    this.launching.set(id, launch);
+    return run;
+  }
+
+  private async launch(run: TeamRun, resume = false): Promise<void> {
     const processes = new Map<string, PiProcess>();
     this.sessions.set(run.id, processes);
     const dirs = this.dirs(run.id);
@@ -183,8 +224,9 @@ export class TeamController {
           "--name",
           `${run.id.slice(0, 8)} / ${member.name}`,
         ];
-        if (run.model) args.push("--model", run.model);
         args.push(...(this.options.extraArgs ?? []));
+        args.push("--provider", "openai-codex", "--model", subscriptionModel(run.model));
+        if (resume) args.push("--session", member.sessionFile!);
         const session = new PiProcess({
           command: this.options.piCommand || process.env.PI_MESH_PI_BIN || "pi",
           args,
@@ -228,6 +270,11 @@ export class TeamController {
           member.model = state?.model
             ? `${state.model.provider}/${state.model.id}`
             : undefined;
+          if (member.model !== run.model)
+            throw new Error(`${name}: expected subscription model ${run.model}, received ${member.model || 'no model'}`);
+          if (resume && resolve(state?.sessionFile || '') !== resolve(member.sessionFile!))
+            throw new Error(`${name}: Pi did not restore the saved session`);
+          member.sessionFile = state?.sessionFile;
           if (!existsSync(join(dirs.registry, `${name}.json`)))
             throw new Error(
               `${name}: pi-mesh did not register. Check the Pi version and extension errors.`,
@@ -237,9 +284,14 @@ export class TeamController {
       if (run.status !== "starting") return;
       run.status = "running";
       this.save(run);
-      // Every peer is connected before any receives the master prompt.
+      // Restore the latest conversation instead of repeating the original goal.
       for (const session of processes.values())
-        session.send("prompt", { message: run.goal });
+        session.send("prompt", {
+          message: resume
+            ? "The human has resumed this same team after pausing it to switch to ChatGPT subscription authentication. Your conversation, shared workspace, and team chat are preserved. Continue the latest human request and agreed responsibilities from your existing history. Check mesh_history and the current files for any work or messages you missed. Do not restart completed work. If your part is complete, report only meaningful updates and wait for a concrete request."
+            : run.goal,
+          ...(resume ? { streamingBehavior: "followUp" } : {}),
+        });
     } catch (error) {
       if (run.status === "stopping" || run.status === "stopped") return;
       run.status = "failed";

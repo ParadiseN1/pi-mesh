@@ -19,8 +19,8 @@ const stateLabels = {
   starting: "Team connecting",
   running: "Work in progress",
   idle: "Team idle",
-  stopping: "Stopping team",
-  stopped: "Team stopped",
+  stopping: "Pausing team",
+  stopped: "Team paused",
   failed: "Startup failed",
   interrupted: "Session interrupted",
 };
@@ -114,6 +114,8 @@ function render() {
   $("run-state").textContent = run ? stateLabels[run.status] : "Office ready";
   $("stop-team").hidden = !running();
   $("stop-team").disabled = run?.status === "stopping";
+  $("resume-team").hidden = !run || !["stopped", "interrupted", "failed"].includes(run.status);
+  $("resume-team").disabled = snapshot.runs.some(item => ["starting", "running", "idle", "stopping"].includes(item.status));
   $("room-number").textContent = String(
     Math.max(1, snapshot.runs.findIndex((item) => item.id === run?.id) + 1),
   ).padStart(2, "0");
@@ -426,10 +428,22 @@ $("stop-team").addEventListener("click", async () => {
   $("stop-team").disabled = true;
   try {
     await api(`/api/runs/${snapshot.run.id}/stop`, {});
-    toast("Team stopped. History saved.");
+    toast("Team paused. History saved.");
   } catch (error) {
     toast(error.message, true);
     $("stop-team").disabled = false;
+  }
+});
+
+$("resume-team").addEventListener("click", async () => {
+  if (!snapshot.run) return;
+  $("resume-team").disabled = true;
+  try {
+    await api(`/api/runs/${snapshot.run.id}/resume`, {});
+    toast("Restoring your team with ChatGPT subscription access.");
+  } catch (error) {
+    toast(error.message, true);
+    $("resume-team").disabled = false;
   }
 });
 

@@ -31,7 +31,8 @@
         </div>
         <div class="office-controls">
           <span id="run-state" class="run-pill">Office ready</span
-          ><button id="stop-team" class="quiet danger" hidden>Stop team</button>
+          ><button id="resume-team" class="primary" hidden>Resume team</button
+          ><button id="stop-team" class="quiet danger" hidden>Pause team</button>
         </div>
       </div>
       <section class="office-frame" aria-label="Pixel office for your agents">
@@ -140,12 +141,12 @@
           <div>
             <label for="model">Model</label
             ><select id="model">
-              <option value="">Pi default</option>
+              <option value="">GPT-6 Astra · ChatGPT subscription</option>
             </select>
           </div>
         </div>
         <p id="model-note" class="field-note">
-          Every agent receives the same goal and the full team roster.
+          Uses your ChatGPT subscription. OpenAI API billing is disabled in this office.
         </p>
         <p id="form-error" class="form-error" role="alert" hidden></p>
         <button id="launch-button" class="primary launch" type="submit">

@@ -3,6 +3,7 @@ import { resolve, join } from "node:path";
 import { TeamController } from "./controller.js";
 import { PiProcess } from "./pi-process.js";
 import { readMessages } from "../history.js";
+import { DEFAULT_MODEL } from "./auth-policy.js";
 
 export function startDashboard(
   options: {
@@ -72,7 +73,7 @@ export function startDashboard(
           );
         }
         if (url.pathname === "/api/config" && request.method === "GET")
-          return json({ token, defaultCwd, maxAgents: 20 });
+          return json({ token, defaultCwd, maxAgents: 20, defaultModel: DEFAULT_MODEL, authentication: "chatgpt-subscription" });
         if (url.pathname === "/api/state" && request.method === "GET")
           return json(
             controller.snapshot(url.searchParams.get("run") || undefined),
@@ -94,6 +95,8 @@ export function startDashboard(
                   "--no-prompt-templates",
                   "--no-context-files",
                   "--no-approve",
+                  "--provider", "openai-codex",
+                  "--model", DEFAULT_MODEL,
                 ],
                 cwd: defaultCwd,
                 onEvent: () => {},
@@ -106,7 +109,7 @@ export function startDashboard(
                   15000,
                 );
                 return {
-                  models: (result?.models || []).map((model: any) => ({
+                  models: (result?.models || []).filter((model: any) => model.provider === 'openai-codex').map((model: any) => ({
                     id: `${model.provider}/${model.id}`,
                     name: `${model.name || model.id} · ${model.provider}`,
                   })),
@@ -168,10 +171,12 @@ export function startDashboard(
         if (url.pathname === "/api/runs" && request.method === "POST")
           return json(controller.create(await request.json()), 201);
         const match = url.pathname.match(
-          /^\/api\/runs\/([a-zA-Z0-9-]+)\/(stop|messages|answer|export)$/,
+          /^\/api\/runs\/([a-zA-Z0-9-]+)\/(stop|resume|messages|answer|export)$/,
         );
         if (match) {
           const [, id, action] = match;
+          if (action === "resume" && request.method === "POST")
+            return json(controller.resume(id));
           if (action === "stop" && request.method === "POST") {
             await controller.stop(id);
             return json({ ok: true });

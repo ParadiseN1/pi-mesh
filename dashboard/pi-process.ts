@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { subscriptionEnvironment } from "./auth-policy.js";
 
 export type PiEvent = Record<string, any>;
 
@@ -27,7 +28,7 @@ export class PiProcess {
   }) {
     this.process = spawn(options.command, options.args, {
       cwd: options.cwd,
-      env: { ...process.env, PI_OFFLINE: "1", ...options.env },
+      env: subscriptionEnvironment(options.env),
       stdio: ["pipe", "pipe", "pipe"],
       detached: process.platform !== "win32",
     });

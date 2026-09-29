@@ -6,6 +6,7 @@ import {
   readdirSync,
   mkdirSync,
   writeFileSync,
+  existsSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -19,6 +20,7 @@ import { processInbox, startWatcher, stopWatcher } from "../messaging.js";
 import { TeamController } from "../dashboard/controller.js";
 import { startDashboard } from "../dashboard/server.js";
 import { teamContext } from "../team.js";
+import { DEFAULT_MODEL } from "../dashboard/auth-policy.js";
 import { deskPositions } from "../dashboard/public/office.js";
 import type { Dirs, MeshState } from "../types.js";
 
@@ -166,6 +168,67 @@ describe("durable team messages", () => {
 });
 
 describe("team process lifecycle", () => {
+  it("rejects API models and strips an inherited OpenAI key from child processes", async () => {
+    const ctl = makeController();
+    expect(() => ctl.create({ count: 1, goal: 'No API', cwd: root, model: 'openai/gpt-6-astra' })).toThrow('subscription');
+    expect(ctl.list()).toHaveLength(0);
+    const previous = process.env.OPENAI_API_KEY;
+    let run;
+    try {
+      process.env.OPENAI_API_KEY = 'fixture-not-a-real-key';
+      run = ctl.create({ count: 1, goal: 'Subscription default', cwd: root });
+    } finally {
+      if (previous === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = previous;
+    }
+    await until(() => run.status === 'idle');
+    expect(run.model).toBe(DEFAULT_MODEL);
+    expect(JSON.parse(readFileSync(join(ctl.dirs(run.id).base, 'agent-1.launch.json'), 'utf8')).apiKeyPresent).toBe(false);
+  });
+  it("does not send a goal when Pi reports a non-subscription model", async () => {
+    const ctl = makeController(['--fixture-api-model']);
+    const run = ctl.create({count:1, goal:'Never send to API', cwd:root});
+    await until(() => run.status === 'failed' && run.members[0].status === 'stopped');
+    expect(run.error).toContain('expected subscription model');
+    expect(existsSync(join(ctl.dirs(run.id).base, 'agent-1.probe.json'))).toBe(false);
+  });
+  it("resumes the same saved sessions after a server restart without resetting history or counters", async () => {
+    const ctl = makeController();
+    const run = ctl.create({count:2, goal:'Original goal', cwd:root});
+    await until(() => run.status === 'idle');
+    ctl.send(run.id, {to:'agent-1', text:'Latest human follow-up'});
+    await until(() => run.members[0].output === 'Received: Latest human follow-up');
+    await ctl.stop(run.id);
+    const files = run.members.map(m => m.sessionFile!);
+    const bytes = files.map(p => readFileSync(p, 'utf8'));
+    const previousTokens = run.members.map(m => m.tokens);
+    const restored = new TeamController(ctl.options);
+    controller = restored;
+    const resumed = restored.resume(run.id);
+    expect(() => restored.resume(run.id)).toThrow();
+    await until(() => resumed.status === 'idle');
+    expect(resumed.id).toBe(run.id);
+    expect(resumed.model).toBe(DEFAULT_MODEL);
+    expect(resumed.members.map(m => m.sessionFile)).toEqual(files);
+    expect(files.map(p => readFileSync(p, 'utf8'))).toEqual(bytes);
+    expect(resumed.members.map(m => m.tokens)).toEqual(previousTokens.map(n => n + 1));
+    expect(restored.snapshot(run.id).messages[0].text).toBe('Latest human follow-up');
+    for (const name of run.agents) {
+      const probe = JSON.parse(readFileSync(join(restored.dirs(run.id).base, `${name}.probe.json`), 'utf8'));
+      expect(probe.prompt).toContain('Continue the latest human request');
+      expect(probe.prompt).not.toBe(run.goal);
+      expect(JSON.parse(readFileSync(join(restored.dirs(run.id).base, `${name}.launch.json`), 'utf8')).resumed).toBe(true);
+    }
+  });
+  it("keeps a stopped run unchanged when a saved session is missing", async () => {
+    const ctl = makeController();
+    const run = ctl.create({count:2, goal:'Preserve history', cwd:root});
+    await until(() => run.status === 'idle');
+    await ctl.stop(run.id);
+    rmSync(run.members[1].sessionFile!);
+    expect(() => ctl.resume(run.id)).toThrow('Missing saved session');
+    expect(run.status).toBe('stopped');
+  });
   it("connects all ten peers before sending the shared goal, wakes on a DM, and stops every process", async () => {
     const ctl = makeController();
     const run = ctl.create({
