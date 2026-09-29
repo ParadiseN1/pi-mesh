@@ -16,13 +16,13 @@ const escape = (value) =>
   );
 const office = createOffice($("office-canvas"));
 const stateLabels = {
-  starting: "Команда підключається",
-  running: "Робота триває",
-  idle: "Команда очікує",
-  stopping: "Зупиняємо команду",
-  stopped: "Роботу зупинено",
-  failed: "Помилка запуску",
-  interrupted: "Сесію перервано",
+  starting: "Team connecting",
+  running: "Work in progress",
+  idle: "Team idle",
+  stopping: "Stopping team",
+  stopped: "Team stopped",
+  failed: "Startup failed",
+  interrupted: "Session interrupted",
 };
 let config,
   snapshot = { runs: [], run: null, messages: [] },
@@ -39,14 +39,16 @@ const color = (name) =>
     : agentColors[
         Math.max(0, Number(name.split("-")[1]) - 1) % agentColors.length
       ] || "#b5a1d8";
-const displayName = (name) => (name === "human" ? "Ви" : name);
+const displayName = (name) => (name === "human" ? "You" : name);
 const number = (value) =>
-  new Intl.NumberFormat("uk-UA", {
+  new Intl.NumberFormat("en-US", {
     notation: value > 9999 ? "compact" : "standard",
     maximumFractionDigits: 1,
   }).format(value);
+const quantity = (value, noun) =>
+  `${number(value)} ${noun}${value === 1 ? "" : "s"}`;
 const time = (value) =>
-  new Date(value).toLocaleTimeString("uk-UA", {
+  new Date(value).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -78,7 +80,7 @@ async function api(path, body) {
         },
   );
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Не вдалося виконати дію");
+  if (!response.ok) throw new Error(result.error || "Something went wrong");
   return result;
 }
 function connect(id) {
@@ -89,12 +91,12 @@ function connect(id) {
   );
   source.onmessage = (event) => {
     snapshot = JSON.parse(event.data);
-    $("connection").innerHTML = "<i></i>Підключено";
+    $("connection").innerHTML = "<i></i>Connected";
     $("connection").classList.add("live");
     render();
   };
   source.onerror = () => {
-    $("connection").innerHTML = "<i></i>Відновлюємо зв’язок";
+    $("connection").innerHTML = "<i></i>Reconnecting";
     $("connection").classList.remove("live");
   };
 }
@@ -103,13 +105,13 @@ function render() {
   office.update(snapshot);
   $("welcome-card").hidden = Boolean(run);
   $("office-title").textContent = run
-    ? "Команда у своєму ритмі."
-    : "Місце, де ідеї стають роботою.";
+    ? "Your team, in its own rhythm."
+    : "Where ideas get to work.";
   $("goal-preview").textContent = run
     ? run.goal
-    : "Одна ціль. Рівноправні агенти. Власний ритм роботи.";
+    : "One goal. Equal peers. A rhythm of their own.";
   $("goal-preview").title = run?.goal || "";
-  $("run-state").textContent = run ? stateLabels[run.status] : "Офіс готовий";
+  $("run-state").textContent = run ? stateLabels[run.status] : "Office ready";
   $("stop-team").hidden = !running();
   $("stop-team").disabled = run?.status === "stopping";
   $("room-number").textContent = String(
@@ -118,7 +120,10 @@ function render() {
   const members = run?.members || [],
     working = members.filter((member) => member.status === "working").length;
   $("team-stats").innerHTML =
-    `<span><i class="dot green"></i>${members.length} агентів${working ? ` · ${working} працює` : ""}</span><span>${messages.length} повідомлень</span><span>${number(members.reduce((total, member) => total + member.tokens, 0))} токенів</span>`;
+    `<span><i class="dot green"></i>${quantity(members.length, "agent")}${working ? ` · ${working} working` : ""}</span><span>${quantity(messages.length, "message")}</span><span>${quantity(
+      members.reduce((total, member) => total + member.tokens, 0),
+      "token",
+    )}</span>`;
   $("run-error").hidden = !run?.error;
   $("run-error").textContent = run?.error || "";
   const rosterKey = JSON.stringify(
@@ -135,7 +140,7 @@ function render() {
     $("agent-hotspots").innerHTML = members
       .map((member, index) => {
         const { x, y, scale } = positions[index];
-        return `<button class="agent-hotspot" data-agent="${escape(member.name)}" aria-label="Відкрити ${escape(member.name)}: ${escape(member.statusMessage || statusNames[member.status])}" title="${escape(member.name)} · ${escape(member.statusMessage || statusNames[member.status])}" style="left:${(x - 62 * scale) / 9.6}%;top:${(y - 58 * scale) / 6.2}%;width:${(124 * scale) / 9.6}%;height:${(155 * scale) / 6.2}%"><span>${escape(member.name)} ↗</span></button>`;
+        return `<button class="agent-hotspot" data-agent="${escape(member.name)}" aria-label="Open ${escape(member.name)}: ${escape(member.statusMessage || statusNames[member.status])}" title="${escape(member.name)} · ${escape(member.statusMessage || statusNames[member.status])}" style="left:${(x - 62 * scale) / 9.6}%;top:${(y - 58 * scale) / 6.2}%;width:${(124 * scale) / 9.6}%;height:${(155 * scale) / 6.2}%"><span>${escape(member.name)} ↗</span></button>`;
       })
       .join("");
     $("agent-channels").innerHTML = members
@@ -166,7 +171,7 @@ function render() {
           `<button class="channel-button peer-button" data-channel="pair:${escape(key)}">${escape(pair[0])} ↔ ${escape(pair[1])}</button>`,
       )
       .join("") ||
-    '<p class="history-empty" style="padding:0 12px;font-size:10px">Діалоги з’являться тут.</p>';
+    '<p class="history-empty" style="padding:0 12px;font-size:10px">Conversations will appear here.</p>';
   if ($("peer-channels").innerHTML !== peerMarkup)
     $("peer-channels").innerHTML = peerMarkup;
   $("export-link").href = run ? `/api/runs/${run.id}/export` : "#";
@@ -195,17 +200,17 @@ function renderChat() {
     kind === "global"
       ? "# Global Chat"
       : kind === "all"
-        ? "Усі розмови"
+        ? "All conversations"
         : pair
           ? pair.join(" ↔ ")
           : agentName;
   $("channel-description").textContent = member
-    ? "Робота агента та його розмови з командою."
+    ? "This agent's work and team conversations."
     : pair
-      ? "Приватна розмова між учасниками команди."
-      : "Спільні домовленості, питання та результати.";
+      ? "A direct conversation between teammates."
+      : "Shared plans, questions, and results.";
   $("chat-goal").hidden = !run;
-  if (run) $("chat-goal").innerHTML = `<b>Спільна ціль</b>${escape(run.goal)}`;
+  if (run) $("chat-goal").innerHTML = `<b>Shared goal</b>${escape(run.goal)}`;
   document
     .querySelectorAll("[data-channel]")
     .forEach((button) =>
@@ -238,10 +243,10 @@ function renderChat() {
               message.channel === "global"
                 ? "# global"
                 : `${displayName(message.from)} → ${displayName(message.to)}`;
-            return `<article class="message"><div class="message-avatar" style="--avatar-color:${color(message.from)}">${escape(message.from === "human" ? "В" : message.from.split("-")[1] || "m")}</div><div class="message-content"><div class="message-meta"><strong>${escape(displayName(message.from))}</strong><time datetime="${escape(message.timestamp)}">${time(message.timestamp)}</time><span class="message-route">${escape(route)}${message.urgent ? " · терміново" : ""}</span></div><p>${escape(message.text)}</p></div></article>`;
+            return `<article class="message"><div class="message-avatar" style="--avatar-color:${color(message.from)}">${escape(message.from === "human" ? "Y" : message.from.split("-")[1] || "m")}</div><div class="message-content"><div class="message-meta"><strong>${escape(displayName(message.from))}</strong><time datetime="${escape(message.timestamp)}">${time(message.timestamp)}</time><span class="message-route">${escape(route)}${message.urgent ? " · urgent" : ""}</span></div><p>${escape(message.text)}</p></div></article>`;
           })
           .join("")
-      : `<div class="empty-chat"><span class="empty-symbol">${kind === "global" ? "#" : "···"}</span><h3>${run ? "Розмова почнеться тут" : "В офісі поки тихо"}</h3><p>${run ? "Тут показуються повідомлення, які учасники справді надсилають одне одному." : "Створіть команду зі спільною ціллю — і її розмови з’являться на дошці."}</p></div>`;
+      : `<div class="empty-chat"><span class="empty-symbol">${kind === "global" ? "#" : "···"}</span><h3>${run ? "The conversation starts here" : "The office is quiet for now"}</h3><p>${run ? "Messages your teammates send to each other will appear here." : "Create a team with a shared goal to bring this board to life."}</p></div>`;
     if (atBottom || changedChannel)
       container.scrollTop = container.scrollHeight;
   }
@@ -249,17 +254,17 @@ function renderChat() {
   $("message-text").disabled = !canSend;
   $("send-message").disabled = !canSend;
   $("compose-label").textContent = pair
-    ? "Ви переглядаєте розмову двох агентів"
+    ? "You are viewing a conversation between two agents"
     : member
-      ? `Ваше повідомлення для ${agentName}`
-      : "Ваше повідомлення всій команді";
+      ? `Your message to ${agentName}`
+      : "Your message to the whole team";
   $("message-text").placeholder = pair
-    ? "Оберіть агента зліва, щоб написати йому особисто."
+    ? "Select an agent in the sidebar to send a direct message."
     : !canSend
-      ? "Повідомлення доступні, коли команда працює."
+      ? "Messaging is available while the team is running."
       : member
-        ? `Напишіть ${agentName}…`
-        : "Напишіть команді…";
+        ? `Message ${agentName}…`
+        : "Message your team…";
   $("agent-detail").hidden = !member;
   if (member) {
     const key = JSON.stringify(member);
@@ -268,10 +273,10 @@ function renderChat() {
       let question = "";
       if (member.pendingQuestion) {
         const q = member.pendingQuestion;
-        question = `<div class="question"><p>${escape(q.title || "Агент очікує відповідь")}</p>${q.message ? `<p>${escape(q.message)}</p>` : ""}`;
+        question = `<div class="question"><p>${escape(q.title || "The agent is waiting for your answer")}</p>${q.message ? `<p>${escape(q.message)}</p>` : ""}`;
         if (q.method === "confirm")
           question +=
-            '<button data-answer="yes">Підтвердити</button><button data-answer="no">Відхилити</button>';
+            '<button data-answer="yes">Confirm</button><button data-answer="no">Decline</button>';
         else if (q.method === "select")
           question += (q.options || [])
             .map(
@@ -281,11 +286,11 @@ function renderChat() {
             .join("");
         else
           question +=
-            '<textarea id="question-answer" rows="3" placeholder="Ваша відповідь"></textarea><button data-answer="text">Відповісти</button>';
-        question += '<button data-answer="cancel">Скасувати</button></div>';
+            '<textarea id="question-answer" rows="3" placeholder="Your answer"></textarea><button data-answer="text">Reply</button>';
+        question += '<button data-answer="cancel">Cancel</button></div>';
       }
       $("agent-detail").innerHTML =
-        `<div class="message-avatar" style="--avatar-color:${color(member.name)};width:43px;height:43px;font-size:20px">${escape(member.name.split("-")[1])}</div><h3>${escape(member.name)}</h3><span class="detail-status">${escape(statusNames[member.status])}</span><p>${escape(member.statusMessage || member.activity)}</p>${question}${member.error ? `<p class="form-error">${escape(member.error)}</p>` : ""}<div class="detail-label">МОДЕЛЬ</div><p>${escape(member.model || "Налаштована в Pi")}</p><div class="detail-label">АКТИВНІСТЬ</div><p>${number(member.toolCalls)} викликів інструментів · ${number(member.tokens)} токенів</p>${member.reservations?.length ? `<div class="detail-label">ПРАЦЮЄ З ФАЙЛАМИ</div><pre>${escape(member.reservations.map((item) => item.pattern).join("\n"))}</pre>` : ""}<div class="detail-label">ОСТАННІЙ РЕЗУЛЬТАТ</div><p>${escape(member.output || "Агент ще не залишив результату.")}</p>`;
+        `<div class="message-avatar" style="--avatar-color:${color(member.name)};width:43px;height:43px;font-size:20px">${escape(member.name.split("-")[1])}</div><h3>${escape(member.name)}</h3><span class="detail-status">${escape(statusNames[member.status])}</span><p>${escape(member.statusMessage || member.activity)}</p>${question}${member.error ? `<p class="form-error">${escape(member.error)}</p>` : ""}<div class="detail-label">MODEL</div><p>${escape(member.model || "Pi default")}</p><div class="detail-label">ACTIVITY</div><p>${quantity(member.toolCalls, "tool call")} · ${quantity(member.tokens, "token")}</p>${member.reservations?.length ? `<div class="detail-label">RESERVED FILES</div><pre>${escape(member.reservations.map((item) => item.pattern).join("\n"))}</pre>` : ""}<div class="detail-label">LATEST RESULT</div><p>${escape(member.output || "This agent has not shared a result yet.")}</p>`;
     }
   }
 }
@@ -295,10 +300,10 @@ function renderHistory() {
     ? snapshot.runs
         .map(
           (run) =>
-            `<button class="history-row" data-run="${escape(run.id)}"><strong>${escape(run.goal)}</strong><span>${new Date(run.createdAt).toLocaleString("uk-UA", { dateStyle: "short", timeStyle: "short" })} · ${run.count} агентів · ${escape(stateLabels[run.status])}</span></button>`,
+            `<button class="history-row" data-run="${escape(run.id)}"><strong>${escape(run.goal)}</strong><span>${new Date(run.createdAt).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" })} · ${quantity(run.count, "agent")} · ${escape(stateLabels[run.status])}</span></button>`,
         )
         .join("")
-    : '<p class="history-empty">Тут збережуться ваші робочі кімнати та розмови.</p>';
+    : '<p class="history-empty">Your workrooms and conversations will be saved here.</p>';
 }
 function openCreate() {
   if (
@@ -306,7 +311,7 @@ function openCreate() {
       ["starting", "running", "idle", "stopping"].includes(run.status),
     )
   ) {
-    toast("Спочатку зупиніть поточну команду.");
+    toast("Stop the current team before starting another one.");
     return;
   }
   $("form-error").hidden = true;
@@ -387,7 +392,7 @@ $("create-form").addEventListener("submit", async (event) => {
     rosterSignature = "";
     messageSignature = "";
     connect(run.id);
-    toast("Команда підключається до офісу.");
+    toast("Your team is connecting to the office.");
   } catch (error) {
     $("form-error").textContent = error.message;
     $("form-error").hidden = false;
@@ -421,7 +426,7 @@ $("stop-team").addEventListener("click", async () => {
   $("stop-team").disabled = true;
   try {
     await api(`/api/runs/${snapshot.run.id}/stop`, {});
-    toast("Команду зупинено. Історію збережено.");
+    toast("Team stopped. History saved.");
   } catch (error) {
     toast(error.message, true);
     $("stop-team").disabled = false;
@@ -440,9 +445,8 @@ try {
       $("model").append(option);
     }
     if (result.error)
-      $("model-note").textContent =
-        `Не вдалося перевірити моделі Pi: ${result.error}`;
+      $("model-note").textContent = `Could not load Pi models: ${result.error}`;
   });
 } catch (error) {
-  toast(`Не вдалося підключити офіс: ${error.message}`, true);
+  toast(`Could not connect to the office: ${error.message}`, true);
 }

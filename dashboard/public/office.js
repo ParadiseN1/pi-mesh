@@ -11,11 +11,11 @@ export const agentColors = [
   "#83c6bc",
 ];
 export const statusNames = {
-  starting: "Підключається",
-  working: "Працює",
-  waiting: "Очікує",
-  stopped: "Відключений",
-  error: "Потрібна увага",
+  starting: "Connecting",
+  working: "Working",
+  waiting: "Waiting",
+  stopped: "Offline",
+  error: "Needs attention",
 };
 
 export function deskPositions(count) {
@@ -202,7 +202,7 @@ export function createOffice(canvas) {
     text("mesh office", x + 9, y + 31, "#ded1e8", 9);
     r(x + 4, y + 49, 74, 15, "#595069");
     text("# global", x + 10, y + 52, "#ede7f2", 8);
-    text("УЧАСНИКИ", x + 10, y + 78, "#8f849f", 7);
+    text("TEAM", x + 10, y + 78, "#8f849f", 7);
     const members = snapshot.run?.members || [];
     for (let i = 0; i < Math.min(members.length, 4); i++) {
       r(x + 10, y + 93 + i * 12, 4, 4, agentColors[i]);
@@ -214,15 +214,15 @@ export function createOffice(canvas) {
       .filter((message) => message.channel === "global")
       .slice(-3);
     if (!messages.length) {
-      text("Тут з'являться розмови команди.", x + 99, y + 70, "#a9a2b7", 8);
+      text("Your team's conversations go here.", x + 99, y + 70, "#a9a2b7", 8);
       text(
-        "Спільні ідеї, питання та результати.",
+        "Shared ideas, questions, and results.",
         x + 99,
         y + 86,
         "#77758d",
         7,
       );
-      text("ВІДКРИТИ ДОШКУ  ↗", x + 99, y + 122, "#c3dea1", 8);
+      text("OPEN THE BOARD  ↗", x + 99, y + 122, "#c3dea1", 8);
     } else
       messages.forEach((message, index) => {
         const yy = y + 58 + index * 29;
@@ -237,7 +237,7 @@ export function createOffice(canvas) {
             : agentColors[n % agentColors.length],
         );
         text(
-          message.from === "human" ? "Ви" : message.from,
+          message.from === "human" ? "You" : message.from,
           x + 117,
           yy - 1,
           "#dbd2e6",
@@ -348,7 +348,7 @@ export function createOffice(canvas) {
         member.status,
       )
         ? statusNames[member.status]
-        : member.statusMessage || statusNames[member.status] || "Очікує";
+        : member.statusMessage || statusNames[member.status] || "Waiting";
       r(-62, -55, 124, 20, "#54475fdd");
       r(-60, -57, 120, 20, "#f0ded1");
       r(-3, -37, 6, 4, "#f0ded1");
@@ -363,7 +363,7 @@ export function createOffice(canvas) {
       r(-34, 78, 68, 15, "#705d78dd");
       text(member.name, 0, 81, statusColor, 9, "center");
     } else {
-      text("вільне місце", 0, 80, "#8b6e77", 8, "center");
+      text("available desk", 0, 80, "#8b6e77", 8, "center");
     }
     c.restore();
   }

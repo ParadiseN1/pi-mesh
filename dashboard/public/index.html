@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mesh Office — кімната вашої команди</title>
+    <title>Mesh Office — Your team's workroom</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -12,40 +12,33 @@
         ><span class="brand-mark" aria-hidden="true">m</span
         ><span
           >MESH<span class="brand-light">OFFICE</span
-          ><small>Маленький офіс. Спільна велика ціль.</small></span
+          ><small>A little office. One shared ambition.</small></span
         ></a
       >
       <div class="top-actions">
-        <span id="connection" class="connection"><i></i>Підключення</span
+        <span id="connection" class="connection"><i></i>Connecting</span
         ><button id="history-button" class="quiet">
-          Історія <span>⌄</span></button
-        ><button id="new-team" class="primary">
-          <span>＋</span> Нова команда
-        </button>
+          History <span>⌄</span></button
+        ><button id="new-team" class="primary"><span>＋</span> New team</button>
       </div>
     </header>
     <main class="workspace">
       <div class="office-heading">
         <div>
           <div class="eyebrow">YOUR TEAM'S LITTLE CORNER OF THE INTERNET</div>
-          <h1 id="office-title">Місце, де ідеї стають роботою<span>.</span></h1>
-          <p id="goal-preview">
-            Одна ціль. Рівноправні агенти. Власний ритм роботи.
-          </p>
+          <h1 id="office-title">Where ideas get to work<span>.</span></h1>
+          <p id="goal-preview">One goal. Equal peers. A rhythm of their own.</p>
         </div>
         <div class="office-controls">
-          <span id="run-state" class="run-pill">Офіс готовий</span
-          ><button id="stop-team" class="quiet danger" hidden>
-            Зупинити команду
-          </button>
+          <span id="run-state" class="run-pill">Office ready</span
+          ><button id="stop-team" class="quiet danger" hidden>Stop team</button>
         </div>
       </div>
-      <section class="office-frame" aria-label="Піксельний офіс агентів">
+      <section class="office-frame" aria-label="Pixel office for your agents">
         <div class="room-topline">
           <span><i class="lamp"></i> WORKROOM / <b id="room-number">01</b></span
           ><span
-            >НАТИСНІТЬ НА ДОШКУ, ЩОБ ВІДКРИТИ ЧАТ
-            <span class="keycap">↗</span></span
+            >CLICK THE BOARD TO OPEN CHAT <span class="keycap">↗</span></span
           >
         </div>
         <div id="office-stage" class="office-stage">
@@ -53,41 +46,41 @@
             id="office-canvas"
             width="960"
             height="620"
-            aria-label="Офіс зі столами агентів і дошкою повідомлень"
+            aria-label="Office with agent desks and a message board"
           ></canvas>
           <button
             id="board-button"
             class="board-hotspot"
-            aria-label="Відкрити дошку повідомлень"
+            aria-label="Open message board"
           >
-            <span>Відкрити чат <b>↗</b></span>
+            <span>Open chat <b>↗</b></span>
           </button>
           <div id="agent-hotspots"></div>
           <div id="welcome-card" class="welcome-card">
-            <span class="tiny-label">ВСЕ ПОЧИНАЄТЬСЯ З ІДЕЇ</span>
-            <h2>Команда чекає на свою першу ціль.</h2>
+            <span class="tiny-label">IT STARTS WITH AN IDEA</span>
+            <h2>Your team is ready for its first goal.</h2>
             <p>
-              Опишіть задачу й оберіть, скільки агентів працюватимуть разом.
+              Describe the task and choose how many agents will work together.
             </p>
             <button id="welcome-start" class="primary">
-              Зібрати команду <span>↗</span>
+              Bring your team together <span>↗</span>
             </button>
           </div>
         </div>
         <footer class="room-footer">
           <div id="team-stats" class="team-stats">
-            <span><i class="dot green"></i>0 агентів</span
-            ><span>0 повідомлень</span><span>0 токенів</span>
+            <span><i class="dot green"></i>0 agents</span><span>0 messages</span
+            ><span>0 tokens</span>
           </div>
           <button id="open-chat" class="text-button">
-            Дошка команди <span>↗</span>
+            Team board <span>↗</span>
           </button>
         </footer>
       </section>
       <div class="below-office">
         <p>
-          <span>✦</span> Кожен стіл — окремий агент. Натисніть на нього, щоб
-          побачити роботу й розмови.
+          <span>✦</span> Every desk belongs to an agent. Click to see their work
+          and conversations.
         </p>
         <span class="pixel-note">MADE FOR WORKING TOGETHER</span>
       </div>
@@ -98,39 +91,39 @@
       <button
         class="dialog-close"
         data-close="create-dialog"
-        aria-label="Закрити"
+        aria-label="Close"
       >
         ×
       </button>
       <div class="form-kicker">
-        <span class="pixel-flower">✳</span> НОВА КОМАНДА
+        <span class="pixel-flower">✳</span> NEW TEAM
       </div>
-      <h2>Дайте офісу спільну ціль.</h2>
-      <p class="muted">Агенти самі домовляться, як працювати разом.</p>
+      <h2>Give your office a shared goal.</h2>
+      <p class="muted">Your agents will decide how to work together.</p>
       <form id="create-form">
-        <label for="goal">Що потрібно зробити?</label
+        <label for="goal">What needs to get done?</label
         ><textarea
           id="goal"
           name="goal"
           rows="4"
           required
           maxlength="30000"
-          placeholder="Опишіть задачу, бажаний результат і важливі обмеження…"
+          placeholder="Describe the task, the desired outcome, and any constraints…"
         ></textarea>
-        <label for="cwd">Робоча папка</label
+        <label for="cwd">Workspace folder</label
         ><input
           id="cwd"
           name="cwd"
           required
-          placeholder="/шлях/до/проєкту"
+          placeholder="/path/to/project"
           autocomplete="off"
           spellcheck="false"
         />
         <div class="form-grid">
           <div>
-            <label for="count">Кількість агентів</label>
+            <label for="count">Number of agents</label>
             <div class="stepper">
-              <button type="button" id="count-minus" aria-label="Менше агентів">
+              <button type="button" id="count-minus" aria-label="Fewer agents">
                 −</button
               ><input
                 id="count"
@@ -139,28 +132,24 @@
                 max="20"
                 value="10"
                 required
-              /><button
-                type="button"
-                id="count-plus"
-                aria-label="Більше агентів"
-              >
+              /><button type="button" id="count-plus" aria-label="More agents">
                 ＋
               </button>
             </div>
           </div>
           <div>
-            <label for="model">Модель</label
+            <label for="model">Model</label
             ><select id="model">
-              <option value="">Налаштована в Pi</option>
+              <option value="">Pi default</option>
             </select>
           </div>
         </div>
         <p id="model-note" class="field-note">
-          Усі учасники отримають однакову ціль і список колег.
+          Every agent receives the same goal and the full team roster.
         </p>
         <p id="form-error" class="form-error" role="alert" hidden></p>
         <button id="launch-button" class="primary launch" type="submit">
-          Почати роботу <span>↗</span>
+          Start working <span>↗</span>
         </button>
       </form>
     </dialog>
@@ -170,24 +159,24 @@
           <div class="chat-brand">
             <span class="brand-mark small">m</span><strong>Mesh Office</strong>
           </div>
-          <div class="sidebar-heading">ДОШКА</div>
+          <div class="sidebar-heading">BOARD</div>
           <button class="channel-button selected" data-channel="global">
             <span>#</span> Global Chat <b id="global-count">0</b></button
           ><button class="channel-button" data-channel="all">
-            <span>◎</span> Усі розмови
+            <span>◎</span> All conversations
           </button>
           <div class="sidebar-heading">
-            АГЕНТИ <span id="member-count">0</span>
+            AGENTS <span id="member-count">0</span>
           </div>
           <div id="agent-channels"></div>
-          <div class="sidebar-heading">ДІАЛОГИ КОМАНДИ</div>
+          <div class="sidebar-heading">TEAM CONVERSATIONS</div>
           <div id="peer-channels"></div>
           <div class="sidebar-bottom">
-            <i class="dot green"></i>Ви — власник команди<a
+            <i class="dot green"></i>You are the team owner<a
               id="export-link"
               href="#"
               download
-              >Зберегти історію ↗</a
+              >Export history ↗</a
             >
           </div>
         </aside>
@@ -196,20 +185,20 @@
             <div>
               <h2 id="channel-title"># Global Chat</h2>
               <p id="channel-description">
-                Спільні домовленості, питання та результати.
+                Shared plans, questions, and results.
               </p>
             </div>
             <div class="chat-header-actions">
               <button
                 id="fullscreen-chat"
                 class="icon-button"
-                aria-label="На весь екран"
+                aria-label="Expand chat"
               >
                 ⛶</button
               ><button
                 class="icon-button"
                 data-close="chat-dialog"
-                aria-label="Повернутися в офіс"
+                aria-label="Back to office"
               >
                 ×
               </button>
@@ -224,18 +213,17 @@
           ></div>
           <form id="message-form" class="compose">
             <label id="compose-label" for="message-text"
-              >Повідомлення всій команді</label
+              >Message the whole team</label
             ><textarea
               id="message-text"
               rows="2"
               maxlength="50000"
-              placeholder="Напишіть команді…"
+              placeholder="Message your team…"
             ></textarea>
             <div>
-              <span id="compose-hint"
-                >Від вашого імені · Ctrl / ⌘ + Enter, щоб надіслати</span
+              <span id="compose-hint">From you · Ctrl / ⌘ + Enter to send</span
               ><button class="primary" id="send-message" type="submit">
-                Надіслати ↑
+                Send ↑
               </button>
             </div>
           </form>
@@ -247,12 +235,12 @@
       <button
         class="dialog-close"
         data-close="history-dialog"
-        aria-label="Закрити"
+        aria-label="Close"
       >
         ×
       </button>
-      <div class="eyebrow">ВАШІ КОМАНДИ</div>
-      <h2>Попередні робочі кімнати</h2>
+      <div class="eyebrow">YOUR TEAMS</div>
+      <h2>Previous workrooms</h2>
       <div id="run-history"></div>
     </dialog>
     <script type="module" src="/app.js"></script>
