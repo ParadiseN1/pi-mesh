@@ -206,7 +206,8 @@ describe("team process lifecycle", () => {
     controller = restored;
     const resumed = restored.resume(run.id);
     expect(() => restored.resume(run.id)).toThrow();
-    await until(() => resumed.status === 'idle');
+    await until(() => resumed.members.every((member, index) =>
+      member.status === 'waiting' && member.tokens === previousTokens[index] + 1));
     expect(resumed.id).toBe(run.id);
     expect(resumed.model).toBe(DEFAULT_MODEL);
     expect(resumed.members.map(m => m.sessionFile)).toEqual(files);
