@@ -9,13 +9,14 @@
 }
 .room-tools b {
   background: #e4d9e9;
+  color: #44384c;
   border-radius: 5px;
   padding: 2px 6px;
   margin-left: 3px;
 }
 .delivery-indicator {
   font-size: 11px;
-  color: #7b7085;
+  color: #bcb2c6;
 }
 .record-hotspot {
   position: absolute;
